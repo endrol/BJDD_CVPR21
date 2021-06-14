@@ -2,3 +2,5 @@
 weights/
 modelOutput/
 
+# log
+logDir/
