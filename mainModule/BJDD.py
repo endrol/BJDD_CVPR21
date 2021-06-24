@@ -1,3 +1,4 @@
+import pdb
 import torch 
 from torch import Tensor
 import torch.nn as nn
@@ -24,6 +25,7 @@ from loss.percetualLoss import *
 from modelDefinitions.attentionDis import *
 from modelDefinitions.attentionGen import *
 from torchvision.utils import save_image
+from tqdm import tqdm
 
 
 class BJDD:
@@ -35,6 +37,7 @@ class BJDD:
         self.checkpointPath = config['checkpointPath']
         self.logPath = config['logPath']
         self.testImagesPath = config['testImagePath']
+        self.custom_test_set = config['custom_test_md_set']
         self.resultDir = config['resultDir']
         self.modelName = config['modelName']
         self.dataSamples = config['dataSamples']
@@ -63,7 +66,7 @@ class BJDD:
         self.unNorm = UnNormalize()
 
         # Noise Level for inferencing
-        self.noiseSet = [5, 10, 15]
+        self.noiseSet = [0, 5, 10, 15]
         
 
         # Preapring model(s) for GPU acceleration
@@ -149,6 +152,7 @@ class BJDD:
         #self.scheduleLR = optim.lr_scheduler.OneCycleLR(optimizer=self.optimizerEG, max_lr=self.learningRate, total_steps=self.totalSteps)
         # Initiating progress bar 
         bar = ProgressBar(self.totalSteps, max_width=int(self.barLen/2))
+        # import pdb; pdb.set_trace()
         currentStep = self.startSteps
         while currentStep < self.totalSteps:
 
@@ -172,6 +176,7 @@ class BJDD:
               
                 
                 # GAN Variables
+                # TODO 
                 onesConst = torch.ones(rawInput.shape[0], 1).to(self.device)
                 targetReal = (torch.rand(rawInput.shape[0],1) * 0.5 + 0.7).to(self.device)
                 targetFake = (torch.rand(rawInput.shape[0],1) * 0.3).to(self.device)
@@ -212,6 +217,7 @@ class BJDD:
 
                 # Progress Bar
                 if (currentStep  + 1) % self.interval/2 == 0:
+                    # pdb.set_trace()
                     bar.numerator = currentStep + 1
                     print(Fore.YELLOW + "Steps |",bar,Fore.YELLOW + "| LossEG: {:.4f}, LossED: {:.4f}, RFL: {:.4f}".format(lossEG, lossED, featureLoss(highResFake, highResReal)),end='\r')
                     
@@ -277,6 +283,26 @@ class BJDD:
                         barVal.numerator = imageCounter
                         print(Fore.CYAN + "Image Processd |", barVal,Fore.CYAN, end='\r')
         print("\n")
+    
+    def model_custom_inference(self, testImagesPath = None, outputDir = None, validation = None, steps = None):
+        test_set = self.custom_test_set
+        if not validation:
+            self.modelLoad()
+            print("\nInferencing on pretrained weights.")
+        else:
+            print("Validation about to begin.")
+        modelInference = inference(gridSize=self.binnigFactor, inputRootDir=self.custom_test_set, outputRootDir=self.resultDir, modelName=self.modelName, validation=validation)
+
+        with torch.no_grad():
+            # traverse image folder
+            for root, _, files in os.walk(test_set):
+                for name in tqdm(files):
+                    img = modelInference.custom_inputForInference(os.path.join(root, name)).to(self.device)
+                    output = self.attentionNet(img)
+                    noise = int(name[name.find('_')+1:name.find('.')])
+                    modelInference.saveModelOutput(output, os.path.join(root, name), noise, steps)
+        print("finished")
+
 
     def modelSummary(self,input_size = None):
         if not input_size:
@@ -317,7 +343,7 @@ class BJDD:
                         }
         saveCheckpoint(modelStates = checkpoint, path = self.checkpointPath, modelName = self.modelName)
         if duplicate:
-            saveCheckpoint(modelStates = checkpoint, path = self.checkpointPath + str(currentStep) + "/", modelName = self.modelName, backup=None)
+            saveCheckpoint(modelStates = checkpoint, path = self.checkpointPath + str(currentStep) + "/",currentEpoch=currentStep , modelName = self.modelName, backup=None)
 
 
 
@@ -332,7 +358,7 @@ class BJDD:
         self.optimizerED.load_state_dict(previousWeight['optimizerED']) 
         self.scheduleLR = previousWeight['schedulerLR']
         self.startSteps = int(previousWeight['step'])
-        
+        # pdb.set_trace()
         customPrint(Fore.YELLOW + "Weight loaded successfully", textWidth=self.barLen)
 
 

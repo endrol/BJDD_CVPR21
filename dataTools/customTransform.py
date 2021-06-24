@@ -10,8 +10,9 @@ class AddGaussianNoise(object):
         self.pov = pov
     def __call__(self, tensor):
         sigma = random.uniform(0, self.var ** self.pov)
-        noisyTensor = tensor + torch.randn(tensor.size()).uniform_(0, 1.) * sigma  + self.mean
-        return noisyTensor 
+        # noisyTensor = tensor + torch.randn(tensor.size()).uniform_(0, 1.) * sigma  + self.mean
+        noisyTensor = tensor + torch.randn(tensor.size()) * sigma  + self.mean
+        return noisyTensor
     
     def __repr__(self):
         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.var)

@@ -32,13 +32,17 @@ if __name__ == "__main__":
     if options.train:
         BJDD(config).modelTraining(dataSamples=options.dataSamples)
     if options.retrain:
-        BJDD(config).modelTraining(resumeTraning=True, dataSamples=options.dataSamples) 
+        BJDD(config).modelTraining(resumeTraning=True, dataSamples=options.dataSamples)
+
+    if options.custom_inference:
+        BJDD(config).model_custom_inference(testImagesPath=options.sourceDir, outputDir=options.resultDir)
     if options.inference:
         noiseSigmaSet = None
         if options.noiseSigma:
             noiseSigmaSet = options.noiseSigma.split(',')
             noiseSigmaSet = list(map(int, noiseSigmaSet))
         BJDD(config).modelInference(testImagesPath=options.sourceDir, outputDir=options.resultDir, noiseSet=noiseSigmaSet)
+        
     if options.overFitTest:
         BJDD(config).modelTraining(overFitTest=True)
     if options.dataSampling:

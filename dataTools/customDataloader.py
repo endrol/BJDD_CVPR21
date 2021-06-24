@@ -37,7 +37,7 @@ class customDatasetReader(Dataset):
         # Read Images
         #print ("print i",i, i+1)
         try:    
-            self.sampledImage = Image.open(self.image_list[i])
+            self.sampledImage = Image.open(self.image_list[i]).convert("RGB")
         except:
             self.sampledImage = Image.open(self.image_list[i + 1])
             os.remove(i)
@@ -45,7 +45,7 @@ class customDatasetReader(Dataset):
             i += 1
 
         self.gtImageFileName = self.imagePathGT + extractFileName(self.image_list[i])
-        self.gtImage = Image.open(self.gtImageFileName)
+        self.gtImage = Image.open(self.gtImageFileName).convert("RGB")
 
         # Transforms Images for training 
         self.inputImage = self.transformRI(self.sampledImage)

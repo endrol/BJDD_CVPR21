@@ -72,7 +72,7 @@ def saveCheckpoint(modelStates, path, modelName = None, currentEpoch = None, bac
         else:
             copyfile(cpName, backupPath+extractFileName(cpName))
 
-    torch.save(modelStates, cpName )
+    torch.save(modelStates, cpName)
 
 
 

@@ -24,7 +24,9 @@ class AddGaussianNoise(object):
         
     def __call__(self, tensor):
         sigma = self.noiseLevel/100.
-        noisyTensor = tensor + torch.randn(tensor.size()).uniform_(0, 1.) * sigma  + self.mean
+        # noisyTensor = tensor + torch.randn(tensor.size()).uniform_(0, 1.) * sigma  + self.mean
+        # noisyTensor = tensor + torch.randn(tensor.size()) * sigma + self.mean
+        noisyTensor = tensor + torch.ones(tensor.size()).uniform_(0, 1.) * sigma  + self.mean
         return noisyTensor 
     
     def __repr__(self):
@@ -42,9 +44,17 @@ class inference():
         self.unNormalize = UnNormalize()
     
 
+    def custom_inputForInference(self, imagePath):
+        img = Image.open(imagePath).convert("RGB")
+        img = np.asarray(img)
+        transform = transforms.Compose([ transforms.ToTensor(),
+                                    transforms.Normalize(normMean, normStd)])
+        testImg = transform(img).unsqueeze(0)
+        return testImg
+
 
     def inputForInference(self, imagePath, noiseLevel):
-        img = Image.open(imagePath)
+        img = Image.open(imagePath).convert("RGB")
         #print(imagePath, img.size)
         #print (img.size)
         '''if  img.size[0]>1024:
@@ -60,13 +70,17 @@ class inference():
             img = img.resize(resizeDimension)
             print ("New Image Dimesion:", img.size)
             img.save(imagePath)''' 
+        
+        # test for Flikr big, resize to 512
+        img = img.resize((512, 512))
+        img.save(imagePath)
 
         if  img.size[0]<600 or img.size[1]<600:
             #print("Image Resized",imagePath, img.size)
             resizeDimension =  (512, 512) 
             img = img.resize(resizeDimension)
             #print ("New Image Dimesion:", img.size)
-            img.save(imagePath) 
+            img.save(imagePath)
 
         if  ("McM" in imagePath) or ("WED" in imagePath) or ("BSD" in imagePath):
             #print("Image Resized",imagePath, img.size)

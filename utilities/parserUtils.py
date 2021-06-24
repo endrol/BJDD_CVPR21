@@ -16,6 +16,7 @@ def mainParser(args=sys.argv[1:]):
     parser.add_argument("-g", "--gridSize", type=int, default=2, help="Set batch size")
     parser.add_argument("-p", "--patch", action='store_true', help="Extract patches from target images")
     parser.add_argument("-i", "--inference", action='store_true', help="Inference with pretrained weights")
+    parser.add_argument("-ci", "--custom_inference", action="store_true", help="custom_inference by using given mosaicked images")
     parser.add_argument("-ns", "--noiseSigma", type=str, default=None, help="Set of sigma values to inference on pretrained weights")
     parser.add_argument("-s", "--sourceDir",  help="Directory to fetch images for testing")
     parser.add_argument("-d", "--resultDir",  help="Directory to save inference outputs")
