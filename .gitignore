@@ -1,6 +1,9 @@
 # datas
 weights/
 modelOutput/
+modelOutput*
+dataTools*
+*png
 
 # log
 logDir/
