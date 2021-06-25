@@ -7,3 +7,5 @@ dataTools*
 
 # log
 logDir/
+utilities/__pycache__/customUtils.cpython-37.pyc
+utilities/__pycache__/torchUtils.cpython-37.pyc

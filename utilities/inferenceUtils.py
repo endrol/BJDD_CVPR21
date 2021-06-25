@@ -25,8 +25,8 @@ class AddGaussianNoise(object):
     def __call__(self, tensor):
         sigma = self.noiseLevel/100.
         # noisyTensor = tensor + torch.randn(tensor.size()).uniform_(0, 1.) * sigma  + self.mean
-        # noisyTensor = tensor + torch.randn(tensor.size()) * sigma + self.mean
-        noisyTensor = tensor + torch.ones(tensor.size()).uniform_(0, 1.) * sigma  + self.mean
+        noisyTensor = tensor + torch.randn(tensor.size()) * sigma + self.mean
+        
         return noisyTensor 
     
     def __repr__(self):
@@ -70,30 +70,33 @@ class inference():
             img = img.resize(resizeDimension)
             print ("New Image Dimesion:", img.size)
             img.save(imagePath)''' 
+
         
-        # test for Flikr big, resize to 512
-        img = img.resize((512, 512))
-        img.save(imagePath)
+        # if  img.size[0]<600 or img.size[1]<600:
+        #     #print("Image Resized",imagePath, img.size)
+        #     resizeDimension =  (512, 512) 
+        #     img = img.resize(resizeDimension)
+        #     #print ("New Image Dimesion:", img.size)
+        #     img.save(imagePath)
 
-        if  img.size[0]<600 or img.size[1]<600:
-            #print("Image Resized",imagePath, img.size)
-            resizeDimension =  (512, 512) 
-            img = img.resize(resizeDimension)
-            #print ("New Image Dimesion:", img.size)
-            img.save(imagePath)
+        # if  ("McM" in imagePath) or ("WED" in imagePath) or ("BSD" in imagePath):
+        #     #print("Image Resized",imagePath, img.size)
+        #     resizeDimension =  (512, 512) 
+        #     img = img.resize(resizeDimension)
+        #     img.save(imagePath) 
+        # if "Urban" in imagePath:
+        #     #print("Image Resized",imagePath, img.size)
+        #     resizeDimension =  (1024, 1024) 
+        #     img = img.resize(resizeDimension)
+        #     img.save(imagePath)  
+        # import pdb; pdb.set_trace()
+        img = np.asarray(img)
+        x = img.shape[1] // 2
+        y = img.shape[0] // 2
 
-        if  ("McM" in imagePath) or ("WED" in imagePath) or ("BSD" in imagePath):
-            #print("Image Resized",imagePath, img.size)
-            resizeDimension =  (512, 512) 
-            img = img.resize(resizeDimension)
-            img.save(imagePath) 
-        if "Urban" in imagePath:
-            #print("Image Resized",imagePath, img.size)
-            resizeDimension =  (1024, 1024) 
-            img = img.resize(resizeDimension)
-            img.save(imagePath)  
+        half_min_img_side = min(img.shape[0], img.shape[1]) // 4
+        img = img[y-2*half_min_img_side:y+2*half_min_img_side, x-2*half_min_img_side:x+2*half_min_img_side]
 
-        img = np.asarray(img) 
         if self.gridSize == 1 : 
             img = bayerSampler(img)
         elif self.gridSize == 2 : 

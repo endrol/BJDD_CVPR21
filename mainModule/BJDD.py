@@ -1,3 +1,4 @@
+from os import write
 import pdb
 import torch 
 from torch import Tensor
@@ -14,6 +15,7 @@ import colorama
 from colorama import Fore, Style
 from etaprogress.progress import ProgressBar
 from torchsummary import summary
+from torch.utils.tensorboard import SummaryWriter
 from ptflops import get_model_complexity_info
 from utilities.torchUtils import *
 from dataTools.customDataloader import *
@@ -147,13 +149,18 @@ class BJDD:
         # Initiating steps
         self.totalSteps =  int(len(trainingImageLoader)*self.totalEpoch)
         startTime = time.time()
-        
+        interv_time = startTime
         # Instantiating Super Convergance 
         #self.scheduleLR = optim.lr_scheduler.OneCycleLR(optimizer=self.optimizerEG, max_lr=self.learningRate, total_steps=self.totalSteps)
         # Initiating progress bar 
         bar = ProgressBar(self.totalSteps, max_width=int(self.barLen/2))
         # import pdb; pdb.set_trace()
         currentStep = self.startSteps
+
+        # utilize tensorboard
+        createDir(self.logPath)
+        writer = SummaryWriter(self.logPath + f"training_process_{self.modelName}")
+
         while currentStep < self.totalSteps:
 
             # Time tracker
@@ -191,17 +198,19 @@ class BJDD:
                 
                 # Optimaztion of Discriminator
                 self.optimizerED.zero_grad()
-                lossED = adversarialLoss(self.discriminator(highResReal), targetReal) + \
-                         adversarialLoss(self.discriminator(highResFake.detach()), targetFake)
+                ed_true_loss = adversarialLoss(self.discriminator(highResReal), targetReal)
+                ed_false_loss = adversarialLoss(self.discriminator(highResFake.detach()), targetFake)
+                lossED = ed_true_loss + ed_false_loss
                 lossED.backward()
                 self.optimizerED.step()
 
                 
                 # Optimization of generator 
                 self.optimizerEG.zero_grad()
-                generatorContentLoss =  reconstructionLoss(highResFake, highResReal) + \
-                                        featureLoss(highResFake, highResReal) + \
-                                        colorLoss(highResFake, highResReal)
+                feature_loss = featureLoss(highResFake, highResReal)
+                reconstruction_loss = reconstructionLoss(highResFake, highResReal)
+                color_loss = colorLoss(highResFake, highResReal)
+                generatorContentLoss =  feature_loss + reconstruction_loss + color_loss
 
                 generatorAdversarialLoss = adversarialLoss(self.discriminator(highResFake), onesConst)
                 lossEG = generatorContentLoss + 1e-3 * generatorAdversarialLoss
@@ -219,25 +228,38 @@ class BJDD:
                 if (currentStep  + 1) % self.interval/2 == 0:
                     # pdb.set_trace()
                     bar.numerator = currentStep + 1
-                    print(Fore.YELLOW + "Steps |",bar,Fore.YELLOW + "| LossEG: {:.4f}, LossED: {:.4f}, RFL: {:.4f}".format(lossEG, lossED, featureLoss(highResFake, highResReal)),end='\r')
-                    
+                    print(Fore.YELLOW + "Steps |",bar,Fore.YELLOW + "| LossEG: {:.4f}, LossED: {:.4f}, RFL: {:.4f}, run_Time: {}".format(lossEG, lossED, feature_loss, (time.time()-interv_time)),end='\r')
+                    interv_time = time.time()
                 
                 # Updating training log
                 if (currentStep + 1) % self.interval == 0:
-                   
+                    # record G_losses
+                    writer.add_scalar("LossEG", lossEG, global_step=currentStep+1)
+                    writer.add_scalar("RFL", feature_loss, global_step=currentStep+1)
+                    writer.add_scalar("Color_loss", color_loss, global_step=currentStep+1)
+                    writer.add_scalar("L1_loss", reconstruction_loss, global_step=currentStep+1)
+
+                    # record loss_D
+                    writer.add_scalar("LossED", lossED, global_step=currentStep+1)
+                    writer.add_scalar("D_real_loss", ed_true_loss, currentStep+1)
+                    writer.add_scalar("D_fake_loss", ed_false_loss, currentStep+1)
+
+                    writer.add_image("Input_Images", torchvision.utils.make_grid(self.unNorm(rawInput[:8])), global_step=currentStep+1)
+                    writer.add_image("Generated_images", torchvision.utils.make_grid(self.unNorm(highResFake[:8])), global_step=currentStep + 1)
+                    writer.add_image("GT_image", torchvision.utils.make_grid(self.unNorm(highResReal[:8])), global_step=currentStep+1)
                     # Updating Tensorboard
-                    summaryInfo = { 
-                                    'Input Images' : self.unNorm(rawInput),
-                                    'AttentionNetGen Images' : self.unNorm(highResFake),
-                                    'GT Images' : self.unNorm(highResReal),
-                                    'Step' : currentStep + 1,
-                                    'Epoch' : self.currentEpoch,
-                                    'LossEG' : lossEG.item(),
-                                    'LossED' : lossED.item(),
-                                    'Path' : self.logPath,
-                                    'Atttention Net' : self.attentionNet,
-                                  }
-                    tbLogWritter(summaryInfo)
+                    # summaryInfo = { 
+                    #                 'Input Images' : self.unNorm(rawInput),
+                    #                 'AttentionNetGen Images' : self.unNorm(highResFake),
+                    #                 'GT Images' : self.unNorm(highResReal),
+                    #                 'Step' : currentStep + 1,
+                    #                 'Epoch' : self.currentEpoch,
+                    #                 'LossEG' : lossEG.item(),
+                    #                 'LossED' : lossED.item(),
+                    #                 'Path' : self.logPath,
+                    #                 'Atttention Net' : self.attentionNet,
+                    #               }
+                    # tbLogWritter(summaryInfo)
                     save_image(self.unNorm(highResFake[0]), 'modelOutput.png')
 
                     # Saving Weights and state of the model for resume training 
@@ -249,8 +271,10 @@ class BJDD:
                     #self.modelInference(validation=True, steps = currentStep + 1)
                     eHours, eMinutes, eSeconds = timer(iterTime, time.time())
                     print (Fore.CYAN +'Steps [{}/{}] | Time elapsed [{:0>2}:{:0>2}:{:0>2}] | LossC: {:.2f}, LossP : {:.2f}, LossEG: {:.2f}, LossED: {:.2f}' 
-                            .format(currentStep + 1, self.totalSteps, eHours, eMinutes, eSeconds, colorLoss(highResFake, highResReal), featureLoss(highResFake, highResReal),lossEG, lossED))
-                    
+                            .format(currentStep + 1, self.totalSteps, eHours, eMinutes, eSeconds, color_loss, feature_loss, lossEG, lossED))
+        
+        writer.close()
+        print(f"total running time: {time.time() - startTime}")           
    
     def modelInference(self, testImagesPath = None, outputDir = None, resize = None, validation = None, noiseSet = None, steps = None):
         if not validation:
